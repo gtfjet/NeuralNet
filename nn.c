@@ -36,7 +36,7 @@ void main() {
 	x    = (double*) calloc(nNeurons,sizeof(double));
 	b    = (double*) calloc(nNeurons-nInputs,sizeof(double));
 	dedw = (double*) calloc(nWeights,sizeof(double));
-	dat    = (double*) calloc(nNeurons,sizeof(double));
+	dat  = (double*) calloc(nNeurons,sizeof(double));
 	
 	/* Initialize weights */
 	srand(0);
@@ -47,13 +47,13 @@ void main() {
 	printf("\n\n");
 	
 	/* Train the net */ 
-	for(int n=1; n<=3; n++) {
+	for(int n=1; n<=200; n++) {
 		/* Calculate input/output CURRENTLY TWO OF EACH */
 		x[0] = (double) n/100;
 		x[1] = (double) n/10;
 		y1 = sin(x[0]);
 		y2 = cos(x[0]*x[1]);
-		printf("Inputs: %f, %f\n\n", x[0],x[1]);
+		printf("\n\nInputs: %f, %f\n\n", x[0],x[1]);
 
 		
 		/* Calculate output using the net */
@@ -66,32 +66,37 @@ void main() {
 				r++;
 				for(int k=0; k<net[i-1]; k++) {
 					total += w[p]*x[q+k];
-					printf("w[%i]=%f, ",p, w[p]);
+					printf("w_%i=%f; ",p, w[p]);
 					p++;
 				}
-				printf("\nx[%i]=%f -> ", q+net[i-1]+j, x[q+net[i-1]+j]);
 				x[q+net[i-1]+j] = tanh(total);
-				printf("%f\n",x[q+net[i-1]+j]);
+				printf("\nx_%i=%f;\n", q+net[i-1]+j, x[q+net[i-1]+j]);
 			}
 			q += net[i-1];
 		}
 
 		/* Calculate SQUARE Error CURRENTLY TWO OUTPUTS */ 
 		err = (y1-x[nNeurons-2])*(y1-x[nNeurons-2])/2 + (y2-x[nNeurons-1])*(y2-x[nNeurons-1])/2;
-		//printf("%f,%f,%f,%f\n",u1,y1,x[nNeurons-2],err);	
-		printf("\n");
+		printf("\nStatus: %f,%f,%f,%f,%f\n",y1,y2,x[nNeurons-2],x[nNeurons-1],err);	
+		
 		/* Get Partials CURRENTLY TWO OUTPUTS */
 		p = nWeights-1; //step backward thru w
 		q = nNeurons-1;	//step backward thru x
 		for(int i=(nLayers-1); i>0; i--) {
 			for(int j=0; j<net[i]; j++) {
-				dat[q-j] = (1-x[q-j]*x[q-j]);  	//q-j is current node
+				if(i == nLayers-1) {
+					dat[q-j] = (x[q-j]-y2)*(1-x[q-j]*x[q-j]);  	//q-j is current node				
+				} else if(i == nLayers-2) {
+					dat[q-j] = (x[q-j]-y1)*(1-x[q-j]*x[q-j]);  	//q-j is current node
+				} else {
+					dat[q-j] *= (1-x[q-j]*x[q-j]);  	//q-j is current node
+				}
 				for(int k=0; k<net[i-1]; k++) {
 					r 		= q-k-net[i]; 		//other node
-					printf("index=%i, %i, p=%i \n", q-j, r, p);
+					printf("index=%i; %i; p=%i;\n", q-j, r, p);
 					dat[r] += dat[q-j]*w[p];
 					dedw[p] = dat[q-j]*x[r];
-					printf("dat[%i]=%f, dedw[%i]=%f\n",r,dat[r],p,dedw[p]);
+					printf("dat_%i=%f; dedw_%i=%f;\n",r,dat[r],p,dedw[p]);
 					p--;
 				}
 			}
@@ -100,8 +105,10 @@ void main() {
 
 		/* Update weights using one-step Newton's */
 		for(int i=0; i<nWeights; i++) {
-			//w[i] -= err/dedw[i];
+			w[i] -= err/dedw[i];
+			printf("%f,",w[i]);
 		}
+		getch();
 	}
 	
 	/* Free Memory */
