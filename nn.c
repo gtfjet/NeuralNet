@@ -47,13 +47,13 @@ void main() {
 	printf("\n\n");
 	
 	/* Train the net */ 
-	for(int n=1; n<=200; n++) {
+	for(int n=1; n<=2; n++) {
 		/* Calculate input/output CURRENTLY TWO OF EACH */
 		x[0] = (double) n/100;
 		x[1] = (double) n/10;
 		y1 = sin(x[0]);
 		y2 = cos(x[0]*x[1]);
-		printf("\n\nInputs: %f, %f\n\n", x[0],x[1]);
+		printf("\n\nInputs: x_0=%f; x_1=%f; y_0=%f; y_1=%f;\n\n", x[0],x[1],y1,y2);
 
 		
 		/* Calculate output using the net */
@@ -77,23 +77,24 @@ void main() {
 
 		/* Calculate SQUARE Error CURRENTLY TWO OUTPUTS */ 
 		err = (y1-x[nNeurons-2])*(y1-x[nNeurons-2])/2 + (y2-x[nNeurons-1])*(y2-x[nNeurons-1])/2;
-		printf("\nStatus: %f,%f,%f,%f,%f\n",y1,y2,x[nNeurons-2],x[nNeurons-1],err);	
+		printf("\nerr=%f;\n\n",err);	
 		
 		/* Get Partials CURRENTLY TWO OUTPUTS */
+		for(int i=0; i<nNeurons; i++) { dat[i]=0; } 
 		p = nWeights-1; //step backward thru w
 		q = nNeurons-1;	//step backward thru x
 		for(int i=(nLayers-1); i>0; i--) {
 			for(int j=0; j<net[i]; j++) {
-				if(i == nLayers-1) {
+				if( (q-j)==(nNeurons-1) ) {
 					dat[q-j] = (x[q-j]-y2)*(1-x[q-j]*x[q-j]);  	//q-j is current node				
-				} else if(i == nLayers-2) {
+				} else if( (q-j)==(nNeurons-2) ) {
 					dat[q-j] = (x[q-j]-y1)*(1-x[q-j]*x[q-j]);  	//q-j is current node
 				} else {
 					dat[q-j] *= (1-x[q-j]*x[q-j]);  	//q-j is current node
 				}
 				for(int k=0; k<net[i-1]; k++) {
 					r 		= q-k-net[i]; 		//other node
-					printf("index=%i; %i; p=%i;\n", q-j, r, p);
+					//printf("index=(%i,%i); p=%i;\n", q-j, r, p);
 					dat[r] += dat[q-j]*w[p];
 					dedw[p] = dat[q-j]*x[r];
 					printf("dat_%i=%f; dedw_%i=%f;\n",r,dat[r],p,dedw[p]);
@@ -105,8 +106,7 @@ void main() {
 
 		/* Update weights using one-step Newton's */
 		for(int i=0; i<nWeights; i++) {
-			w[i] -= err/dedw[i];
-			printf("%f,",w[i]);
+			w[i] -= 0.001*err/dedw[i];
 		}
 		getch();
 	}
