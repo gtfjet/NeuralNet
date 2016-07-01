@@ -47,10 +47,10 @@ void main() {
 	printf("\n\n");
 	
 	/* Train the net */ 
-	for(int n=1; n<=2; n++) {
+	for(int n=1; n<=1000; n++) {
 		/* Calculate input/output CURRENTLY TWO OF EACH */
-		x[0] = (double) n/100;
-		x[1] = (double) n/10;
+		x[0] = (double) 1/100;
+		x[1] = (double) 1/10;
 		y1 = sin(x[0]);
 		y2 = cos(x[0]*x[1]);
 		printf("\n\nInputs: x_0=%f; x_1=%f; y_0=%f; y_1=%f;\n\n", x[0],x[1],y1,y2);
@@ -81,16 +81,17 @@ void main() {
 		
 		/* Get Partials CURRENTLY TWO OUTPUTS */
 		for(int i=0; i<nNeurons; i++) { dat[i]=0; } 
-		p = nWeights-1; //step backward thru w
-		q = nNeurons-1;	//step backward thru x
+		
+		p = nWeights-1; 					//step backward thru w
+		q = nNeurons-1;						//step backward thru x
 		for(int i=(nLayers-1); i>0; i--) {
 			for(int j=0; j<net[i]; j++) {
 				if( (q-j)==(nNeurons-1) ) {
 					dat[q-j] = (x[q-j]-y2)*(1-x[q-j]*x[q-j]);  	//q-j is current node				
 				} else if( (q-j)==(nNeurons-2) ) {
-					dat[q-j] = (x[q-j]-y1)*(1-x[q-j]*x[q-j]);  	//q-j is current node
+					dat[q-j] = (x[q-j]-y1)*(1-x[q-j]*x[q-j]);  	
 				} else {
-					dat[q-j] *= (1-x[q-j]*x[q-j]);  	//q-j is current node
+					dat[q-j] *= (1-x[q-j]*x[q-j]);  	
 				}
 				for(int k=0; k<net[i-1]; k++) {
 					r 		= q-k-net[i]; 		//other node
@@ -119,18 +120,3 @@ void main() {
 	free(dat);
 	getch();
 }
-
-
-
-
-/* Return zero based index to the layer 
-int get_layer(int k) {
-	int n = 0;
-	int c = -1;
-	while(k>c) {
-		c += net[n];
-		n++;
-	}
-	return(n-1);
-}
-*/
