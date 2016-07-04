@@ -8,46 +8,50 @@
 #include <math.h>
 
 void main() {
+	int i, j, k, n, p, q, r;
 	int net[] = {2,4,3,2};  //define structure of neural net
 	double* w;  		//pointer to weights
 	double* x;  		//pointer to neuron data
 	double* b;			//pointer to biases	
 	double* dedw;		//pointer to partials	
+	double* dedb;		//pointer to biases partials	
 	double* dat; 		//pointer to data
 	int nNeurons = 0;	
 	int nWeights = 0;
 	int nLayers  = sizeof(net)/sizeof(int);
 	int nInputs  = net[0];
-	int nOutputs = net[nLayers];
+	int nOutputs = net[nLayers-1];
+	int nBiases;
 	double y1, y2, total, err;
-	int p, q, r;
 
 	/* Get Size of Network */
-	for(int i=0; i<nLayers; i++) {
+	for(i=0; i<nLayers; i++) {
 		nNeurons += net[i];
 		if(i>0) {
 			nWeights += net[i]*net[i-1];
 		}
 	}		
-	printf("Info: %i,%i,%i\n\n",nLayers,nNeurons,nWeights); 
+	nBiases = nNeurons-nInputs;
+	printf("Info: %i,%i,%i,%i\n\n",nLayers,nBiases,nNeurons,nWeights); 
 	
 	/* Allocate Memory */
 	w    = (double*) calloc(nWeights,sizeof(double));
 	x    = (double*) calloc(nNeurons,sizeof(double));
-	b    = (double*) calloc(nNeurons-nInputs,sizeof(double));
+	b    = (double*) calloc(nBiases, sizeof(double));
+	dedb = (double*) calloc(nBiases, sizeof(double));
 	dedw = (double*) calloc(nWeights,sizeof(double));
 	dat  = (double*) calloc(nNeurons,sizeof(double));
 	
 	/* Initialize weights */
 	srand(0);
-	for (int i=0; i<nWeights; i++) {
-		w[i] = (double) rand()/RAND_MAX;
+	for (i=0; i<nWeights; i++) {
+		w[i] = (double) rand()/RAND_MAX - 0.5;
 		printf("%f,",w[i]);
 	}
 	printf("\n\n");
-	
+
 	/* Train the net */ 
-	for(int n=1; n<=1000; n++) {
+	for(n=0; n<1000; n++) {
 		/* Calculate input/output CURRENTLY TWO OF EACH */
 		x[0] = (double) 1/100;
 		x[1] = (double) 1/10;
@@ -60,11 +64,11 @@ void main() {
 		p = 0; //step thru w
 		q = 0; //step thru x
 		r = 0; //step thru b
-		for(int i=1; i<nLayers; i++) {
-			for(int j=0; j<net[i]; j++) {
+		for(i=1; i<nLayers; i++) {
+			for(j=0; j<net[i]; j++) {
 				total = b[r];  //start with bias
 				r++;
-				for(int k=0; k<net[i-1]; k++) {
+				for(k=0; k<net[i-1]; k++) {
 					total += w[p]*x[q+k];
 					printf("w_%i=%f; ",p, w[p]);
 					p++;
@@ -80,12 +84,12 @@ void main() {
 		printf("\nerr=%f;\n\n",err);	
 		
 		/* Get Partials CURRENTLY TWO OUTPUTS */
-		for(int i=0; i<nNeurons; i++) { dat[i]=0; } 
+		for(i=0; i<nNeurons; i++) { dat[i]=0; } 
 		
 		p = nWeights-1; 					//step backward thru w
 		q = nNeurons-1;						//step backward thru x
-		for(int i=(nLayers-1); i>0; i--) {
-			for(int j=0; j<net[i]; j++) {
+		for(i=(nLayers-1); i>0; i--) {
+			for(j=0; j<net[i]; j++) {
 				if( (q-j)==(nNeurons-1) ) {
 					dat[q-j] = (x[q-j]-y2)*(1-x[q-j]*x[q-j]);  	//q-j is current node				
 				} else if( (q-j)==(nNeurons-2) ) {
@@ -93,7 +97,9 @@ void main() {
 				} else {
 					dat[q-j] *= (1-x[q-j]*x[q-j]);  	
 				}
-				for(int k=0; k<net[i-1]; k++) {
+				dedb[q-j-nInputs] = dat[q-j];
+				printf("dedb_%i=%f;\n",q-j-nInputs,dedb[q-j-nInputs]);
+				for(k=0; k<net[i-1]; k++) {
 					r 		= q-k-net[i]; 		//other node
 					//printf("index=(%i,%i); p=%i;\n", q-j, r, p);
 					dat[r] += dat[q-j]*w[p];
@@ -106,8 +112,11 @@ void main() {
 		}
 
 		/* Update weights using one-step Newton's */
-		for(int i=0; i<nWeights; i++) {
-			w[i] -= 0.001*err/dedw[i];
+		for(i=0; i<nWeights; i++) {
+			w[i] -= 0.1*err/dedw[i];
+		}
+		for(i=0; i<nBiases; i++) {
+			b[i] -= 0.1*err/dedb[i];
 		}
 		getch();
 	}
@@ -117,6 +126,7 @@ void main() {
 	free(x);
 	free(b);
 	free(dedw);
+	free(dedb);
 	free(dat);
 	getch();
 }
