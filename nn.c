@@ -8,8 +8,8 @@
 #define RAND_MAX 32767
 
 void main() {
-	int i, j, k, n, p, q, r;  	//indices
-	int net[] = {2,2,2};      	//define structure of neural net
+	int i, j, k, n, p, q, r;    //indices
+	int net[] = {2,5,5,2};     	//define structure of neural net
 	double* w;  				//pointer to weights
 	double* x;  				//pointer to neuron data
 	double* b;					//pointer to biases	
@@ -45,21 +45,19 @@ void main() {
 	/* Initialize Weights */
 	srand(123456);
 	for(i=0; i<nWeights; i++) {
-		//w[i] = (double) 2*rand()/RAND_MAX - 1.0;
-		w[i] = (double) (rand()%10 - 5)/10.0;
+		w[i] = (double) (rand()%10 - 5)/100.0;
 	}
 	for(i=0; i<nBiases; i++) {
-		b[i] = (double) (rand()%10 - 5)/10.0;
+		b[i] = (double) (rand()%10 - 5)/100.0;
 	}
 
 	/* Train the Net */ 
 	for(n=0; n<1000; n++) {
 		/* Calculate input/output CURRENTLY TWO OF EACH */
-		x[0] = (double) 3;
-		x[1] = (double) 2;
-		y[0] = x[0]*x[0];
-		y[1] = x[0]*x[1];
-		printf("\n\nx_0=%f; x_1=%f; y_0=%f; y_1=%f;\n\n",x[0],x[1],y[0],y[1]);
+		x[0] = (double) 0.5;
+		x[1] = (double) 1.5;
+		y[0] = sin(x[0]*x[1]);
+		y[1] = cos(x[0]*x[1]);
 
 		/* Calculate output using the net */
 		p = 0;		//step thru w
@@ -68,15 +66,12 @@ void main() {
 		for(i=1; i<nLayers; i++) {
 			for(j=0; j<net[i]; j++) {
 				total = b[r];  		//start with bias
-				printf("b_%i=%f;\n",r,b[r]);
 				r++;
 				for(k=0; k<net[i-1]; k++) {
 					total += w[p]*x[q+k];
-					printf("w_%i=%f; ",p,w[p]);
 					p++;
 				}
 				x[q+net[i-1]+j] = tanh(total);
-				printf("\nx_%i=%f;\n",q+net[i-1]+j,x[q+net[i-1]+j]);
 			}
 			q += net[i-1];
 		}
@@ -84,7 +79,6 @@ void main() {
 		/* Calculate SQUARE Error CURRENTLY TWO OUTPUTS */ 
 		err = (y[0]-x[nNeurons-2])*(y[0]-x[nNeurons-2])/2 
 			+ (y[1]-x[nNeurons-1])*(y[1]-x[nNeurons-1])/2;
-		printf("\nerr=%f;\n\n",err);	
 		
 		/* Get Partials CURRENTLY TWO OUTPUTS */
 		for(i=0; i<nNeurons; i++) { dat[i]=0; } 
@@ -100,27 +94,26 @@ void main() {
 					dat[q-j] *= (1-x[q-j]*x[q-j]);  	
 				}
 				dedb[q-j-nInputs] = dat[q-j];
-				printf("dedb_%i=%f;\n",q-j-nInputs,dedb[q-j-nInputs]);
 				for(k=0; k<net[i-1]; k++) {
 					r 		= q-k-net[i]; 		//other node
 					dat[r] += dat[q-j]*w[p];
 					dedw[p] = dat[q-j]*x[r];
-					printf("dat_%i=%f; dedw_%i=%f;\n",r,dat[r],p,dedw[p]);
 					p--;
 				}
 			}
 			q -= net[i];
-		}
+		}		
 
 		/* Update weights using one-step Newton's */
 		for(i=0; i<nWeights; i++) {
-			w[i] -= 0.001*err/dedw[i];
+			w[i] -= n*err*dedw[i];
 		}
 		for(i=0; i<nBiases; i++) {
-			b[i] -= 0.001*err/dedb[i];
+			b[i] -= n*err*dedb[i];
 		}
-		getch();
+		printf("%f\n",err);	
 	}
+	printf("%f, %f, %f, %f\n\n",x[nNeurons-2],x[nNeurons-1],y[0],y[1]);
 	
 	/* Free Memory */
 	free(w);
