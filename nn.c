@@ -8,7 +8,8 @@
 #define RAND_MAX 32767
 
 /* Global Variables */
-int net[] = {26,100,22};    //structure of neural net
+//int net[] = {26,100,22};    //structure of neural net
+int net[] = {2,5,5,2};    //structure of neural net
 int nNeurons, nWeights, nBiases, nLayers, nInputs, nOutputs;
 
 /* Sigmoid Function */
@@ -35,7 +36,7 @@ void get_size() {
 	
 /* Calculate Output using the Net */
 void run(float* x, float* w, float* b) {
-	int total;
+	float total;
 	int p = 0;		//step thru w
 	int q = 0;		//step thru x
 	int r = 0;		//step thru b
@@ -47,7 +48,7 @@ void run(float* x, float* w, float* b) {
 				total += w[p]*x[q+k];
 				p++;
 			}
-			x[q+net[i-1]+j] = sig(total);
+			x[q+net[i-1]+j] = tanh(total);
 		}
 		q += net[i-1];
 	}
@@ -59,7 +60,7 @@ float get_error(float* x, float* y) {
 	for(int i=0; i<nOutputs; i++) {
 		err += (y[i]-x[nNeurons-nOutputs+i])*(y[i]-x[nNeurons-nOutputs+i])/2;
 	}
-	printf("%f\n",err);
+	//printf("err=%f\n",err);
 	return err;
 }
 
@@ -72,9 +73,9 @@ void get_partials(float* x, float *y, float* w, float* dedw, float* dedb, float*
 	for(int i=(nLayers-1); i>0; i--) {
 		for(int j=0; j<net[i]; j++) {
 			if(i==(nLayers-1)) {		//(q-j) is current node
-				dat[q-j] = (x[q-j]-y[nOutputs-1-j])*(1-x[q-j])*x[q-j]; 
+				dat[q-j] = (x[q-j]-y[nOutputs-1-j])*(1-x[q-j]*x[q-j]); 
 			} else {	
-				dat[q-j] *= (1-x[q-j])*x[q-j];  	
+				dat[q-j] *= (1-x[q-j]*x[q-j]);  	
 			}
 			dedb[q-j-nInputs] = dat[q-j];
 			for(int k=0; k<net[i-1]; k++) {
@@ -90,14 +91,14 @@ void get_partials(float* x, float *y, float* w, float* dedw, float* dedb, float*
 
 
 void main() {
-	int i, j, k;				//indices
-	float* x;  					//pointer to neuron data
-	float* y;					//pointer to outputs
-	float* w;  					//pointer to weights
-	float* b;					//pointer to biases	
-	float* dedw;				//pointer to partials	
-	float* dedb;				//pointer to biases partials	
-	float* dat; 				//pointer to data
+	int i, j, k;		//indices
+	float* x;  			//pointer to neuron data
+	float* y;			//pointer to outputs
+	float* w;  			//pointer to weights
+	float* b;			//pointer to biases	
+	float* dedw;		//pointer to weight partials	
+	float* dedb;		//pointer to bias partials	
+	float* dat; 		//pointer to aux data
 	float err;
 	FILE* fin  = fopen("in.bin",  "rb");
 	FILE* fout = fopen("out.bin", "rb");
@@ -116,47 +117,51 @@ void main() {
 	/* Initialize Weights */
 	srand(123456);
 	for(i=0; i<nWeights; i++) {
-		w[i] = (float) (rand()%10 - 5)/100.0;
+		w[i] = (float) (rand()%10-5)/100.0;
 	}
 	for(i=0; i<nBiases; i++) {
-		b[i] = (float) (rand()%10 - 5)/100.0;
+		b[i] = (float) (rand()%10-5)/100.0;
 	}
 
 	/* Train the Net */ 
-	for(i=0; i<3335; i++) {
+	for(i=0; i<100; i++) {
 		/* Get Input/Output */
 		fread(x,sizeof(float),nInputs, fin);
 		fread(y,sizeof(float),nOutputs,fout);
 		
-		for(j=0; j<1000; j++) {
+		for(j=0; j<10000; j++) {
 			run(x,w,b);
 			err = get_error(x,y);		
 			get_partials(x,y,w,dedw,dedb,dat);
 				
-			/* Update weights using one-step Newton's */
+			/* Update weights using Steepest descent */
 			for(k=0; k<nWeights; k++) {
 				w[k] -= j*err*dedw[k];
 			}
 			for(k=0; k<nBiases; k++) {
 				b[k] -= j*err*dedb[k];
-			}	
+			}
 		}
-		fwrite(x+nNeurons-nOutputs,sizeof(float),nOutputs,fp);
+		//printf("err=%f\n",err);
+		//fwrite(x+nNeurons-nOutputs,sizeof(float),nOutputs,fp);
 	}
+	//goto stop;
 	
-	/* ReRun the Net 
+	/* Rerun the Net */
 	rewind(fin);
 	rewind(fout);
-	for(i=0; i<3335; i++) {
+	for(i=0; i<100; i++) {
 		fread(x,sizeof(float),nInputs, fin);
 		fread(y,sizeof(float),nOutputs,fout);
 		run(x,w,b);
-		//err = get_error(x,y);
+		err = get_error(x,y);
+		printf("err=%f\n",err);
 		fwrite(x+nNeurons-nOutputs,sizeof(float),nOutputs,fp);
 	}
-	*/
 	
-	/* Free Memory */
+	/* Clean-up */
+	stop:
+	printf("done!\n");
 	free(x);
 	free(y);
 	free(w);
