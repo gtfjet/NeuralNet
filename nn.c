@@ -8,7 +8,7 @@
 #define RAND_MAX 32767
 
 /* Global Variables */
-int net[] = {2,10,2};    //structure of neural net
+int net[] = {2,3,2};    //structure of neural net
 int nNeurons, nWeights, nBiases, nLayers, nInputs, nOutputs, nTuners;
 
 /* Sigmoid Function */
@@ -179,7 +179,7 @@ void main() {
 	}
 
 	/* Train the Net */ 
-	for(k=0; k<10; k++) {
+	for(k=0; k<3; k++) {
 		for(i=0; i<nTuners; i++) {
 			/* Get Input/Output */
 			fread(x,sizeof(double),nInputs, fin);
@@ -190,7 +190,7 @@ void main() {
 			err = get_error(x,y);		
 			de[i] = -err;
 			
-			/* Run Sensitivity matrix */
+			/* Populate Sensitivity matrix */
 			get_partials(x,y,w,dedw,dedb,dat);
 			for(j=0; j<nWeights; j++) { 
 				A[i][j] = dedw[j];
@@ -208,19 +208,18 @@ void main() {
 			}
 			printf(";");
 		}
-		printf("\n\n");
-		printf("de:\n");
+		printf("\n\nde:\n");
 		for(i=0; i<nTuners; i++) { printf("%.17g;", de[i]); }
 		printf("\n\n");
 
-		/* Update Weights using Newton's method	*/
+		/* Save original matrices, solve linear system */
 		for(i=0; i<nTuners; i++) { 
 			de_old[i] = de[i];
 			memcpy(A_old[i],A[i],nTuners*sizeof(double)); 			
 		}
 		gauss(A,de,dw,nTuners);	
-		printf("\ndw:\n");
-		for(i=0; i<nTuners; i++) { printf("%.17g;", dw[i]); }
+		//printf("\ndw:\n");
+		//for(i=0; i<nTuners; i++) { printf("%.17g;", dw[i]); }
 		
 		/* Check Linear Solver */
 		err=0;
@@ -231,15 +230,19 @@ void main() {
 			}
 			err += fabs(total-de_old[i]);
 		}
-		printf("\n\nresidual:\n%.17g\n",err);
+		if(err>1e-5) {
+			printf("\n\nError: residual:\n%.17g\n",err);
+			goto stop;
+		}
 		
+		/* Update Weights	*/
 		for(i=0; i<nWeights; i++) {
 			w[i] += dw[i];
 		}
 		for(i=0; i<nBiases; i++) {
 			b[i] += dw[nWeights+i];
 		}
-		getch();
+		//getch();
 		
 		/* Rewind Streams */ 
 		rewind(fin);
@@ -253,9 +256,12 @@ void main() {
 		fread(y,sizeof(double),nOutputs,fout);
 		run(x,w,b);
 		err = get_error(x,y);
-		printf("err=%f\n",err);
+		de[i] = -err;
 		fwrite(x+nNeurons-nOutputs,sizeof(double),nOutputs,fp);
 	}
+	printf("de_final:\n");
+	for(i=0; i<nTuners; i++) { printf("%.17g;", de[i]); }
+	printf("\n\n");
 	
 	/* Clean-up */
 	stop:
