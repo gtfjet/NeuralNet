@@ -8,7 +8,7 @@
 #define RAND_MAX 32767
 
 /* Global Variables */
-int net[] = {2,5,5,2};    //structure of neural net
+int net[] = {2,10,2};    //structure of neural net
 int nNeurons, nWeights, nBiases, nLayers, nInputs, nOutputs, nTuners;
 
 /* Sigmoid Function */
@@ -35,7 +35,7 @@ void get_size() {
 }
 	
 /* Calculate Output using the Net */
-void run(double* x, double* w, double* b) {
+void run(double* x, const double* w, const double* b) {
 	double total;
 	int p = 0;		//step thru w
 	int q = 0;		//step thru x
@@ -55,7 +55,7 @@ void run(double* x, double* w, double* b) {
 }
 
 /* Calculate Square Error */ 
-double get_error(double* x, double* y) {
+double get_error(const double* x, const double* y) {
 	double err = 0;
 	for(int i=0; i<nOutputs; i++) {
 		err += (y[i]-x[nNeurons-nOutputs+i])*(y[i]-x[nNeurons-nOutputs+i])/2;
@@ -65,7 +65,7 @@ double get_error(double* x, double* y) {
 }
 
 /* Get Partials */
-void get_partials(double* x, double *y, double* w, double* dedw, double* dedb, double* dat) {
+void get_partials(const double* x, const double *y, const double* w, double* dedw, double* dedb, double* dat) {
 	int p = nWeights-1; 	//step backward thru w
 	int q = nNeurons-1;		//step backward thru x
 	int r;
@@ -90,7 +90,7 @@ void get_partials(double* x, double *y, double* w, double* dedw, double* dedb, d
 }
 
 /* Solve Linear System (http://web.mit.edu/10.001/Web/Course_Notes/Gauss_Pivoting.c) */
-void gauss(double **A, double *x, double *b, int n) {
+void gauss(double **A, double *b, double *x, int n) {
 	int i, j, k, m, rowx;
 	double xfac, temp, amax;
 	rowx = 0;					//keep count of the row interchanges
@@ -141,27 +141,32 @@ void main() {
 	double* dedb;		//pointer to bias partials	
 	double* dat; 		//pointer to aux data
 	double* de;			//pointer to delta error
+	double* de_old;		//pointer to delta error
 	double* dw;			//pointer to delta weight & biases
 	double** A;			//pointer to sensitivity matrix
-	double err;
+	double** A_old;		//pointer to sensitivity matrix
+	double err, total;
 	FILE* fin  = fopen("in.bin",  "rb");
 	FILE* fout = fopen("out.bin", "rb");
 	FILE* fp   = fopen("calc.bin","wb");
 	
 	/* Allocate Memory */
 	get_size();
-	x    = (double*) calloc(nNeurons,sizeof(double));
-	y    = (double*) calloc(nOutputs,sizeof(double));
-	w    = (double*) calloc(nWeights,sizeof(double));
-	b    = (double*) calloc(nBiases, sizeof(double));
-	dedw = (double*) calloc(nWeights,sizeof(double));
-	dedb = (double*) calloc(nBiases, sizeof(double));
-	dat  = (double*) calloc(nNeurons,sizeof(double));
-	de   = (double*) calloc(nTuners, sizeof(double));
-	dw   = (double*) calloc(nTuners, sizeof(double));
-	A    = (double**)calloc(nTuners, sizeof(double*));
+	x     = (double*) calloc(nNeurons,sizeof(double));
+	y     = (double*) calloc(nOutputs,sizeof(double));
+	w     = (double*) calloc(nWeights,sizeof(double));
+	b     = (double*) calloc(nBiases, sizeof(double));
+	dedw  = (double*) calloc(nWeights,sizeof(double));
+	dedb  = (double*) calloc(nBiases, sizeof(double));
+	dat   = (double*) calloc(nNeurons,sizeof(double));
+	de    = (double*) calloc(nTuners, sizeof(double));
+	de_old= (double*) calloc(nTuners, sizeof(double));
+	dw    = (double*) calloc(nTuners, sizeof(double));
+	A     = (double**)calloc(nTuners, sizeof(double*));
+	A_old = (double**)calloc(nTuners, sizeof(double*));
 	for(i=0; i<nTuners; i++) { 
-		A[i] = (double*) calloc(nWeights+nBiases, sizeof(double));
+		A[i]    = (double*) calloc(nTuners, sizeof(double));
+		A_old[i]= (double*) calloc(nTuners, sizeof(double));
 	} 
 		
 	/* Initialize Weights */
@@ -174,7 +179,7 @@ void main() {
 	}
 
 	/* Train the Net */ 
-	for(k=0; k<2; k++) {
+	for(k=0; k<10; k++) {
 		for(i=0; i<nTuners; i++) {
 			/* Get Input/Output */
 			fread(x,sizeof(double),nInputs, fin);
@@ -196,53 +201,53 @@ void main() {
 		}
 		
 		/* Display Matrices */
+		printf("A:\n");
 		for(i=0; i<nTuners; i++) {
 			for(j=0; j<nTuners; j++) {
-				printf(",%f",A[i][j]);
+				printf(",%.17g",A[i][j]);
 			}
 			printf(";");
 		}
 		printf("\n\n");
-		for(i=0; i<nTuners; i++) { printf("%f;", de[i]); }
+		printf("de:\n");
+		for(i=0; i<nTuners; i++) { printf("%.17g;", de[i]); }
 		printf("\n\n");
 
 		/* Update Weights using Newton's method	*/
-		gauss(A,dw,de,nTuners);	
-		for(i=0; i<nTuners; i++) { printf("%f;", dw[i]); }
-		goto stop;
+		for(i=0; i<nTuners; i++) { 
+			de_old[i] = de[i];
+			memcpy(A_old[i],A[i],nTuners*sizeof(double)); 			
+		}
+		gauss(A,de,dw,nTuners);	
+		printf("\ndw:\n");
+		for(i=0; i<nTuners; i++) { printf("%.17g;", dw[i]); }
+		
+		/* Check Linear Solver */
+		err=0;
+		for(i=0; i<nTuners; i++) {
+			total = 0;
+			for(j=0; j<nTuners; j++) {
+				total += A_old[i][j]*dw[j];
+			}
+			err += fabs(total-de_old[i]);
+		}
+		printf("\n\nresidual:\n%.17g\n",err);
+		
 		for(i=0; i<nWeights; i++) {
 			w[i] += dw[i];
 		}
 		for(i=0; i<nBiases; i++) {
 			b[i] += dw[nWeights+i];
 		}
+		getch();
 		
 		/* Rewind Streams */ 
 		rewind(fin);
 		rewind(fout);
 	}
-		
-		
-		// for(j=0; j<10000; j++) {
-			// run(x,w,b);
-			// err = get_error(x,y);		
-			// get_partials(x,y,w,dedw,dedb,dat);
-				
-			// /* Update weights using Steepest descent */
-			// for(k=0; k<nWeights; k++) {
-				// w[k] -= j*err*dedw[k];
-			// }
-			// for(k=0; k<nBiases; k++) {
-				// b[k] -= j*err*dedb[k];
-			// }
-		// }
-		
-		// printf("err=%f\n",err);
-		// fwrite(x+nNeurons-nOutputs,sizeof(double),nOutputs,fp);
-	// }
-	//goto stop;
 	
 	/* Rerun the Net */
+	printf("\n\n");
 	for(i=0; i<nTuners; i++) {
 		fread(x,sizeof(double),nInputs, fin);
 		fread(y,sizeof(double),nOutputs,fout);
@@ -254,7 +259,7 @@ void main() {
 	
 	/* Clean-up */
 	stop:
-	printf("done!\n");
+	printf("\n\ndone!\n");
 	free(x);
 	free(y);
 	free(w);
